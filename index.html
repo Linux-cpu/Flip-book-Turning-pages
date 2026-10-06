@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Prevents mobile zooming to lock the physics engine perfectly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Jit Davindra Boutique - Authentic Lookbook</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+    
+    <!-- Unblocks touch dragging for real-time finger tracking -->
+    <script>
+        jQuery.event.special.touchstart = {
+            setup: function( _, ns, handle ) { this.addEventListener("touchstart", handle, { passive: false }); }
+        };
+        jQuery.event.special.touchmove = {
+            setup: function( _, ns, handle ) { this.addEventListener("touchmove", handle, { passive: false }); }
+        };
+    </script>
+    
+    <style>
+        :root {
+            --bg-color: #0c0a0a;
+            /* A slightly warm, authentic paper color */
+            --paper-color: #faf9f6; 
+            --text-main: #211c1c;
+            --accent: #7a1d1d;
+        }
+
+        * { 
+            box-sizing: border-box; margin: 0; padding: 0; 
+            touch-action: none !important; 
+        }
+        
+        html, body {
+            background-color: var(--bg-color);
+            width: 100vw;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+            color: var(--text-main);
+            overscroll-behavior: none;
+            
+            /* Anti-blur rendering */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            
+            /* Cinematic spotlight background to make the white paper POP */
+            background-image: radial-gradient(circle at center, #2a2525 0%, #0c0a0a 100%);
+        }
+
+        /* 
+          FULL VISIBILITY MARGIN:
+          Provides the physical 3D space needed for the page to curl up 
+          and outwards without getting sliced by the edge of your phone.
+        */
+        #flipbook-wrapper {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw;
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 2500px; 
+        }
+
+        #flipbook {
+            position: relative;
+            -webkit-tap-highlight-color: transparent; 
+            
+            /* Massive, realistic physical drop shadow for the heavy catalog */
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6), 0 0 100px rgba(0,0,0,0.4);
+        }
+
+        /* 
+          ULTIMATE PAPER REALISM 
+        */
+        .page {
+            background-color: var(--paper-color) !important;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            
+            /* 
+               1. Base64 SVG Noise: Creates actual microscopic paper grain.
+               2. Edge Crease: A tiny shadow ONLY on the extreme left spine.
+               Turn.js will generate the dynamic 3D shadows on top of this.
+            */
+            background-image: 
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E"),
+                linear-gradient(to right, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0) 3%);
+            
+            /* Inner thickness */
+            box-shadow: inset 1px 0 3px rgba(255,255,255,0.8), inset -1px 0 2px rgba(0,0,0,0.1);
+            
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        .page-content {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            padding: max(3vh, env(safe-area-inset-top)) max(4vw, 1.2rem) max(4vh, env(safe-area-inset-bottom)) max(4vw, 1.2rem);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            
+            /* THE UNWRITTEN BACKSIDE: 
+               Instantly hides all printing when the paper folds over */
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        /* CATALOG LAYOUT */
+        .product-layout {
+            justify-content: flex-start; 
+            padding-top: max(4vh, env(safe-area-inset-top));
+        }
+
+        .product-image {
+            width: 100%;
+            max-width: 420px;
+            height: 48vh; 
+            min-height: 280px;
+            /* Printed photo realism */
+            border: 6px solid #fff;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            background: #eee;
+            image-rendering: -webkit-optimize-contrast;
+            object-fit: cover;
+            object-position: center top;
+        }
+
+        h1 { font-size: clamp(2.2rem, 8vw, 4rem); color: var(--accent); margin-bottom: 0.2em; font-weight: normal; line-height: 1.1; }
+        .tagline { font-style: italic; font-size: clamp(1rem, 3vw, 1.3rem); margin-top: 0.5em; color: #665; }
+
+        .product-title { font-size: clamp(1.3rem, 4vw, 1.8rem); font-weight: bold; color: #111; margin-bottom: 0.4rem; }
+        .product-desc { font-size: clamp(0.95rem, 3vw, 1.1rem); line-height: 1.5; color: #444; max-width: 380px; margin-bottom: 0.8rem; }
+        .product-price { font-size: clamp(1.1rem, 3.5vw, 1.3rem); font-weight: bold; color: var(--accent); }
+        
+        .divider { width: 40px; height: 1px; background-color: var(--accent); margin: 1.2rem auto; opacity: 0.3; }
+
+        /* Elegant UI Hint */
+        .swipe-hint {
+            position: absolute;
+            bottom: max(40px, calc(env(safe-area-inset-bottom) + 20px));
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0,0,0,0.6);
+            font-size: clamp(0.85rem, 2vw, 1rem);
+            animation: pulse 3s infinite ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        @keyframes pulse { 0% { opacity: 0.3; transform: translateX(-50%) translateY(0px); } 50% { opacity: 1; transform: translateX(-50%) translateY(-2px); } 100% { opacity: 0.3; transform: translateX(-50%) translateY(0px); } }
+
+        .page-num {
+            position: absolute;
+            bottom: max(10px, env(safe-area-inset-bottom));
+            width: 100%;
+            text-align: center;
+            font-size: clamp(0.75rem, 2vw, 0.85rem);
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="flipbook-wrapper">
+        <div id="flipbook">
+            
+            <!-- Page 1: Cover -->
+            <div class="page">
+                <div class="page-content">
+                    <h1>Jit Davindra<br>Boutique</h1>
+                    <div class="divider"></div>
+                    <img src="https://images.unsplash.com/photo-1603415526960-f7e0328c63b1?auto=format&fit=crop&q=80&w=600" class="product-image" style="height: 35vh; min-height: 200px; border-radius: 200px 200px 0 0;" alt="Cover Motif">
+                    <p class="tagline">"Har Dhaage vich khoobsurti"</p>
+                    <div class="swipe-hint">Grab any edge & play with the page</div>
+                    <div class="page-num">1</div>
+                </div>
+            </div>
+
+            <!-- Page 2 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1583391733959-b2f281cedc03?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Suit">
+                    <h2 class="product-title">Mint Green Phulkari</h2>
+                    <p class="product-desc">Pure crepe fabric featuring an intricate gota patti neckline and a custom cutwork dupatta.</p>
+                    <p class="product-price">₹4,500</p>
+                    <div class="page-num">2</div>
+                </div>
+            </div>
+
+            <!-- Page 3 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1617267332306-03f1917fba6b?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Sharara">
+                    <h2 class="product-title">Maroon Velvet Sharara</h2>
+                    <p class="product-desc">Free-flowing sharara set detailed with heavy zari embroidery and traditional ghera styling.</p>
+                    <p class="product-price">₹6,200</p>
+                    <div class="page-num">3</div>
+                </div>
+            </div>
+
+            <!-- Page 4 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Lehenga">
+                    <h2 class="product-title">Classic Silk Lehenga</h2>
+                    <p class="product-desc">Bespoke silk lehenga tailored to your exact measurements with traditional floral threadwork.</p>
+                    <p class="product-price">₹8,900</p>
+                    <div class="page-num">4</div>
+                </div>
+            </div>
+
+            <!-- Page 5 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Embroidery Detail">
+                    <h2 class="product-title">Golden Zari Detail</h2>
+                    <p class="product-desc">Close-up of our signature handcrafted zari work, showing the precision of every stitch.</p>
+                    <p class="product-price">Custom Pricing</p>
+                    <div class="page-num">5</div>
+                </div>
+            </div>
+
+            <!-- Page 6 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1583391265517-35bbdad01209?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Blue Kurta">
+                    <h2 class="product-title">Royal Blue Kurta Set</h2>
+                    <p class="product-desc">Elegant georgette kurta featuring contrasting silver threadwork and matching palazzos.</p>
+                    <p class="product-price">₹3,800</p>
+                    <div class="page-num">6</div>
+                </div>
+            </div>
+
+            <!-- Page 7 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1605763240000-7e93b172d754?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Dupatta">
+                    <h2 class="product-title">Heavily Embroidered Dupatta</h2>
+                    <p class="product-desc">Standout piece showcasing traditional full-length embroidery, perfect for pairing.</p>
+                    <p class="product-price">₹2,100</p>
+                    <div class="page-num">7</div>
+                </div>
+            </div>
+
+            <!-- Page 8 -->
+            <div class="page">
+                <div class="page-content product-layout">
+                    <img src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=600" class="product-image" alt="Fabric">
+                    <h2 class="product-title">Pastel Palazzo Suit</h2>
+                    <p class="product-desc">Soft, comfortable, and elegant. Designed for daytime events with minimal floral motifs.</p>
+                    <p class="product-price">₹4,100</p>
+                    <div class="page-num">8</div>
+                </div>
+            </div>
+
+            <!-- Page 9 -->
+            <div class="page">
+                <div class="page-content">
+                    <h2 class="product-title">Custom Creations</h2>
+                    <div class="divider"></div>
+                    <p class="product-desc" style="max-width: 320px; margin: 1rem auto;">Contact us to design your bespoke outfit with personalized ghera patterns and sleeve designs.</p>
+                    <br>
+                    <p class="product-price">Message on telegram<br>@infernoaxe</p>
+                    <div class="swipe-hint">Drag left edge to go back</div>
+                    <div class="page-num">9</div>
+                </div>
+            </div>
+
+            <!-- Page 10 -->
+            <div class="page">
+                <div class="page-content">
+                    <h1 style="font-size: clamp(2rem, 6vw, 3.5rem);">Thank You</h1>
+                    <div class="divider"></div>
+                    <p class="tagline">"Har Dhaage vich khoobsurti"</p>
+                    <div class="page-num">10</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        $(window).on('load', function() {
+            const $flipbook = $('#flipbook');
+            const wrapper = document.getElementById('flipbook-wrapper');
+
+            // 90% screen mapping ensures the physical page bend NEVER hits the edges
+            function getBookWidth() { return wrapper.clientWidth * 0.90; }
+            function getBookHeight() { return wrapper.clientHeight * 0.90; }
+
+            $flipbook.turn({
+                // Strictly 1-page mode
+                display: 'single', 
+                width: getBookWidth(),
+                height: getBookHeight(),
+                
+                // UNLEASHES THE DYNAMIC LIGHTING PHYSICS
+                gradients: true, 
+                
+                // Perfect elevation: Creates a massive shadow, but keeps the page visible
+                elevation: 350, 
+                
+                // Slows the drop physics so the paper feels heavy
+                duration: 1250, 
+                
+                // All corners and edges active for dragging
+                turnCorners: "tl,tr,bl,br,l,r", 
+                
+                acceleration: true
+            });
+
+            // Anti-Freeze Window Resize
+            let resizeTimer;
+            const resizeObserver = new ResizeObserver(entries => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    for (let entry of entries) {
+                        if ($flipbook.turn('is')) {
+                            $flipbook.turn('size', getBookWidth(), getBookHeight());
+                        }
+                    }
+                }, 150); 
+            });
+            
+            resizeObserver.observe(wrapper);
+
+            // Desktop Keyboard Support
+            $(document).keydown(function(e){
+                if (e.keyCode === 37) $flipbook.turn('previous');
+                if (e.keyCode === 39) $flipbook.turn('next');
+            });
+        });
+    </script>
+</body>
+</html>
